@@ -179,6 +179,8 @@ type Flag struct {
 	Deprecated          string              // If this flag is deprecated, this string is the new or now thing to use
 	Hidden              bool                // used by cobra.Command to allow flags to be hidden from help/usage text
 	ShorthandDeprecated string              // If the shorthand of this flag is deprecated, this string is the new or now thing to use
+	HasNegative         bool                // define negative form (--no-xxx) option
+	NegativeVal         string              // value (as text): for negative form option
 	Annotations         map[string][]string // used by cobra.Command bash autocomple code
 }
 
@@ -674,10 +676,14 @@ func (f *FlagSet) FlagUsagesWrapped(cols int) string {
 		}
 
 		line := ""
+		flagName := flag.Name
+		if flag.HasNegative {
+			flagName = fmt.Sprintf("[no-]%s", flag.Name)
+		}
 		if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
-			line = fmt.Sprintf("  -%s, --%s", flag.Shorthand, flag.Name)
+			line = fmt.Sprintf("  -%s, --%s", flag.Shorthand, flagName)
 		} else {
-			line = fmt.Sprintf("      --%s", flag.Name)
+			line = fmt.Sprintf("      --%s", flagName)
 		}
 
 		varname, usage := UnquoteUsage(flag)
@@ -947,6 +953,14 @@ func (f *FlagSet) parseLongArg(s string, args []string, fn parseFunc) (a []strin
 
 	split := strings.SplitN(name, "=", 2)
 	name = split[0]
+
+	orgName := name
+	negative := false
+	if strings.HasPrefix(name, "no-") {
+		name = name[3:]
+		negative = true
+	}
+
 	flag, exists := f.formal[f.normalizeFlagName(name)]
 
 	if !exists {
@@ -963,7 +977,7 @@ func (f *FlagSet) parseLongArg(s string, args []string, fn parseFunc) (a []strin
 
 			return stripUnknownFlagValue(a), nil
 		default:
-			err = f.failf("unknown flag: --%s", name)
+			err = f.failf("unknown flag: --%s", orgName)
 			return
 		}
 	}
@@ -974,7 +988,13 @@ func (f *FlagSet) parseLongArg(s string, args []string, fn parseFunc) (a []strin
 		value = split[1]
 	} else if flag.NoOptDefVal != "" {
 		// '--flag' (arg was optional)
-		value = flag.NoOptDefVal
+		if !negative {
+			value = flag.NoOptDefVal
+		} else if flag.NegativeVal != "" {
+			value = flag.NegativeVal
+		} else {
+			value = "false"
+		}
 	} else if len(a) > 0 {
 		// '--flag arg'
 		value = a[0]

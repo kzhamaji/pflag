@@ -186,6 +186,12 @@ func testParse(f *FlagSet, t *testing.T) {
 	f.Lookup("optional-int-no-value").NoOptDefVal = "9"
 	optionalIntWithValueFlag := f.Int("optional-int-with-value", 0, "int value")
 	f.Lookup("optional-int-no-value").NoOptDefVal = "9"
+	negBoolFlag := f.Bool("negbool", false, "bool value")
+	f.lookup("negbool").HasNegative = true
+	negIntFlag := f.Int("negint", 42, "int value")
+	f.lookup("negint").HasNegative = true
+	f.lookup("negint").NoOptDefVal = "42"
+	f.lookup("negint").NegativeVal = "-1"
 	extra := "one-extra-argument"
 	args := []string{
 		"--bool",
@@ -209,6 +215,8 @@ func testParse(f *FlagSet, t *testing.T) {
 		"--duration=2m",
 		"--optional-int-no-value",
 		"--optional-int-with-value=42",
+		"--no-negbool",
+		"--no-negint",
 		extra,
 	}
 	if err := f.Parse(args); err != nil {
@@ -333,6 +341,12 @@ func testParse(f *FlagSet, t *testing.T) {
 	}
 	if *optionalIntWithValueFlag != 42 {
 		t.Error("optional int flag should be 42, is ", *optionalIntWithValueFlag)
+	}
+	if *negBoolFlag != false {
+		t.Error("negative form bool flag should be false, is ", *negBoolFlag)
+	}
+	if *negIntFlag != -1 {
+		t.Error("negative form int flag should be -1, is ", *negIntFlag)
 	}
 	if len(f.Args()) != 1 {
 		t.Error("expected one argument, got", len(f.Args()))
@@ -1164,6 +1178,8 @@ const defaultOutput = `      --A                         for bootstrapping, allo
       --Z int                     an int that defaults to zero
       --custom custom             custom Value implementation
       --customP custom            a VarP with default (default 10)
+      --[no-]hasnegbool           bool option with negative form (default true)
+      --[no-]hasnegint int        int option with negative form (default 42)
       --maxT timeout              set timeout for dial
   -v, --verbose count             verbosity
 `
@@ -1213,6 +1229,12 @@ func TestPrintDefaults(t *testing.T) {
 
 	cv2 := customValue(10)
 	fs.VarP(&cv2, "customP", "", "a VarP with default")
+
+	fs.Bool("hasnegbool", true, "bool option with negative form")
+	fs.Lookup("hasnegbool").HasNegative = true
+	fs.Int("hasnegint", 42, "int option with negative form")
+	fs.Lookup("hasnegint").HasNegative = true
+	fs.Lookup("hasnegint").NegativeVal = "-1"
 
 	fs.PrintDefaults()
 	got := buf.String()
