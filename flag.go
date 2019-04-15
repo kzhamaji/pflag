@@ -112,6 +112,15 @@ import (
 // ErrHelp is the error returned if the flag -help is invoked but no such flag is defined.
 var ErrHelp = errors.New("pflag: help requested")
 
+// stopParsing is the error type if stopped by a flag with stopParsing enabled.
+type stopParsing struct {
+	StopFlag *Flag
+}
+
+func (err *stopParsing) Error() string {
+	return fmt.Sprintf("stop parsing after %s", err.StopFlag.Name)
+}
+
 // ErrorHandling defines how to handle flag parsing errors.
 type ErrorHandling int
 
@@ -181,6 +190,7 @@ type Flag struct {
 	ShorthandDeprecated string              // If the shorthand of this flag is deprecated, this string is the new or now thing to use
 	HasNegative         bool                // define negative form (--no-xxx) option
 	NegativeVal         string              // value (as text): for negative form option
+	StopParsing         bool                // stop parsing after this flag
 	Annotations         map[string][]string // used by cobra.Command bash autocomple code
 }
 
@@ -1009,6 +1019,11 @@ func (f *FlagSet) parseLongArg(s string, args []string, fn parseFunc) (a []strin
 	if err != nil {
 		f.failf(err.Error())
 	}
+
+	if flag.StopParsing {
+		err = &stopParsing{StopFlag: flag}
+	}
+
 	return
 }
 
@@ -1075,6 +1090,11 @@ func (f *FlagSet) parseSingleShortArg(shorthands string, args []string, fn parse
 	if err != nil {
 		f.failf(err.Error())
 	}
+
+	if flag.StopParsing {
+		err = &stopParsing{StopFlag: flag}
+	}
+
 	return
 }
 
@@ -1118,6 +1138,10 @@ func (f *FlagSet) parseArgs(args []string, fn parseFunc) (err error) {
 			args, err = f.parseShortArg(s, args, fn)
 		}
 		if err != nil {
+			if _, ok := err.(*stopParsing); ok {
+				f.args = append(f.args, args...)
+				err = nil
+			}
 			return
 		}
 	}

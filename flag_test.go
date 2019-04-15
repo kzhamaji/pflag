@@ -1284,3 +1284,30 @@ func TestVisitFlagOrder(t *testing.T) {
 		i++
 	})
 }
+
+func TestStopParsingLong(t *testing.T) {
+	f := NewFlagSet("bob", ContinueOnError)
+	f.Bool("stop", true, "always true")
+	f.Lookup("stop").StopParsing = true
+
+	args := []string{"--stop", "--option", "-o"}
+	if err := f.Parse(args); err != nil {
+		t.Error("expected no error, got ", err)
+	}
+	if f.Arg(0) != "--option" || f.Arg(1) != "-o" {
+		t.Fatal("expected arguments after --stop, got ", f.Args())
+	}
+}
+func TestStopParsingShort(t *testing.T) {
+	f := NewFlagSet("bob", ContinueOnError)
+	f.BoolP("stop", "s", true, "always true")
+	f.Lookup("stop").StopParsing = true
+
+	args := []string{"-s", "--option", "-o"}
+	if err := f.Parse(args); err != nil {
+		t.Error("expected no error, got ", err)
+	}
+	if f.Arg(0) != "--option" || f.Arg(1) != "-o" {
+		t.Fatal("expected arguments after --stop, got ", f.Args())
+	}
+}
